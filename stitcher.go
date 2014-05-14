@@ -1,4 +1,4 @@
-package main
+package MinimapStitcher
 
 import (
 	"fmt"
@@ -13,24 +13,22 @@ import (
 )
 
 const (
-	SRC_DIR = "./Minimaps/"
-	DST_DIR = "./StitchedMaps/"
 	TILE_SIZE = 256
 )
 
-func main() {
-	files, _ := ioutil.ReadDir(SRC_DIR)
+func stitch(sourceDirectory string, destinationDirectory string) {
+	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
-		compileMinimap(DST_DIR + f.Name(), f.Name(), false)
+		compileMinimap(destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
 	}
 }
 
-func compileMinimap(resultFileName string, minimapName string, noLiquid bool) {
+func compileMinimap(resultFileName string, sourceDirectory string, minimapName string, noLiquid bool) {
 	var foundNoLiquid = false
 	var tiles = make(map[string]string);
-	files, _ := ioutil.ReadDir(SRC_DIR + minimapName)
+	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
-		var fullFileName = SRC_DIR + minimapName + "/" + f.Name()
+		var fullFileName = sourceDirectory + "/" + f.Name()
 		if strings.Contains(f.Name(), ".png") {
 			var fName = strings.TrimRight(f.Name(), ".png")
 			var fNameNoLiquid = strings.Contains(fName, "noLiquid")
@@ -50,7 +48,7 @@ func compileMinimap(resultFileName string, minimapName string, noLiquid bool) {
 	}
 
 	if foundNoLiquid && !noLiquid {
-		compileMinimap(resultFileName + "NoLiquid", minimapName, true)
+		compileMinimap(resultFileName + "NoLiquid", sourceDirectory, minimapName, true)
 	}
 
 	buildMinimap(resultFileName, tiles)
