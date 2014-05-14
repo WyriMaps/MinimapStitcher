@@ -16,7 +16,7 @@ const (
 	TILE_SIZE = 256
 )
 
-func stitch(sourceDirectory string, destinationDirectory string) {
+func Stitch(sourceDirectory string, destinationDirectory string) {
 	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
 		compileMinimap(destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
