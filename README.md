@@ -1,7 +1,7 @@
 MinimapSticher
 ==============
 
-World of Warcraft MinimapSticher
+MinimapSticher stitches exported minimap files from World of Warcraft. It ignores the WMO directory and when noLiquid files are found it makes a image with and without them.
 
 ## Installing
 
