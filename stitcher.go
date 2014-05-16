@@ -124,9 +124,9 @@ func createMinimapImage(resultFileName string, width int, height int, files map[
 		if err != nil {
 			log.Fatal(err)
 		}
-		tile.Close()
 
 		tileImage, err := png.Decode(tile)
+		tile.Close()
 		if err != nil {
 			fmt.Printf("%v", fileName)
 			log.Fatal(err)
