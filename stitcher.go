@@ -120,22 +120,28 @@ func createMinimapImage(resultFileName string, width int, height int, files map[
 		var x, _ = strconv.Atoi(coordParts[0])
 		var y, _ = strconv.Atoi(coordParts[1])
 
-		tile, err := os.Open(fileName)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		tileImage, err := png.Decode(tile)
-		tile.Close()
-		if err != nil {
-			fmt.Printf("%v", fileName)
-			log.Fatal(err)
-		}
-
-		draw.Draw(m, image.Rect(x, y, x + TILE_SIZE, y + TILE_SIZE), tileImage, image.Point{0,0}, draw.Src)
+		applyTileToImage(m, fileName, x, y)
 	}
 
 	toimg, _ := os.Create(resultFileName + ".png")
 	png.Encode(toimg, m)
-	toimg.Close()
+
+	defer toimg.Close()
+}
+
+func applyTileToImage(m *image.RGBA, fileName string, x int, y int) {
+	tile, err := os.Open(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tile.Close()
+
+	tileImage, err := png.Decode(tile)
+
+	if err != nil {
+		fmt.Printf("%v", fileName)
+		log.Fatal(err)
+	}
+
+	draw.Draw(m, image.Rect(x, y, x + TILE_SIZE, y + TILE_SIZE), tileImage, image.Point{0,0}, draw.Src)
 }
