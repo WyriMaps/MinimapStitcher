@@ -19,9 +19,23 @@ const (
 func Stitch(sourceDirectory string, destinationDirectory string) {
 	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
-		if f.Name() != "WMO" {
-			compileMinimap(destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
+		fd, err := os.Open(sourceDirectory + f.Name())
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
+		fi, err := fd.Stat()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		mode := fi.Mode()
+		if mode.IsDir() {
+			if f.Name() != "WMO" {
+				compileMinimap(destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
+			}
+		}
+		fd.Close()
 	}
 }
 
