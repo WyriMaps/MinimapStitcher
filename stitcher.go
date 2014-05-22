@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"log"
+	"sync"
 	"io/ioutil"
 	"strings"
 	"strconv"
@@ -17,6 +18,7 @@ const (
 )
 
 func Stitch(sourceDirectory string, destinationDirectory string) {
+	var w sync.WaitGroup
 	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
 		fd, err := os.Open(sourceDirectory + f.Name())
@@ -32,14 +34,16 @@ func Stitch(sourceDirectory string, destinationDirectory string) {
 		mode := fi.Mode()
 		if mode.IsDir() {
 			if f.Name() != "WMO" {
-				compileMinimap(destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
+				w.Add(1)
+				go compileMinimap(w, destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
 			}
 		}
-		fd.Close()
+		defer fd.Close()
 	}
+	w.Wait()
 }
 
-func compileMinimap(resultFileName string, sourceDirectory string, minimapName string, noLiquid bool) {
+func compileMinimap(w sync.WaitGroup, resultFileName string, sourceDirectory string, minimapName string, noLiquid bool) {
 	var foundNoLiquid = false
 	var tiles = make(map[string]string);
 	files, _ := ioutil.ReadDir(sourceDirectory)
@@ -64,10 +68,13 @@ func compileMinimap(resultFileName string, sourceDirectory string, minimapName s
 	}
 
 	if foundNoLiquid && !noLiquid {
-		compileMinimap(resultFileName + "NoLiquid", sourceDirectory, minimapName, true)
+		w.Add(1)
+		compileMinimap(w, resultFileName + "NoLiquid", sourceDirectory, minimapName, true)
 	}
 
 	buildMinimap(resultFileName, tiles)
+
+	w.Done()
 }
 
 func buildMinimap(resultFileName string, tiles map[string]string)  {
