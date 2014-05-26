@@ -15,8 +15,10 @@ Install Minimap Stitcher with:
 package main
 
 import stitcher "github.com/WyriMaps/MinimapStitcher"
+import "runtime"
 
 func main () {
+    runtime.GOMAXPROCS(4) // Where 4 is the number of CPU cores
 	stitcher.Stitch("./Minimaps/", "./StitchedMaps/")
 }
 
