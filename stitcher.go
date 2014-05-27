@@ -2,6 +2,7 @@ package MinimapStitcher
 
 import (
 	"fmt"
+	"runtime"
 	"os"
 	"log"
 	"sync"
@@ -18,7 +19,19 @@ const (
 )
 
 func Stitch(sourceDirectory string, destinationDirectory string) {
-	var w sync.WaitGroup
+	var wg sync.WaitGroup
+	tasks := make(chan [4]string)
+
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		wg.Add(1)
+		go func() {
+			for arguments := range tasks {
+				compileMinimap(tasks, arguments[0],arguments[1],arguments[2],arguments[3])
+			}
+			wg.Done()
+		}()
+	}
+
 	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
 		fd, err := os.Open(sourceDirectory + f.Name())
@@ -34,16 +47,22 @@ func Stitch(sourceDirectory string, destinationDirectory string) {
 		mode := fi.Mode()
 		if mode.IsDir() {
 			if f.Name() != "WMO" {
-				w.Add(1)
-				go compileMinimap(w, destinationDirectory + f.Name(), sourceDirectory + f.Name(), f.Name(), false)
+				var array [4]string
+				array[0] = destinationDirectory + f.Name()
+				array[1] = sourceDirectory + f.Name()
+				array[2] = f.Name()
+				array[3] = "false"
+				tasks <- array
 			}
 		}
 		defer fd.Close()
 	}
-	w.Wait()
+
+	wg.Wait()
 }
 
-func compileMinimap(w sync.WaitGroup, resultFileName string, sourceDirectory string, minimapName string, noLiquid bool) {
+func compileMinimap(tasks chan [4]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
+	var falseString = "false"
 	var foundNoLiquid = false
 	var tiles = make(map[string]string);
 	files, _ := ioutil.ReadDir(sourceDirectory)
@@ -52,13 +71,13 @@ func compileMinimap(w sync.WaitGroup, resultFileName string, sourceDirectory str
 		if strings.Contains(f.Name(), ".png") {
 			var fName = strings.TrimRight(f.Name(), ".png")
 			var fNameNoLiquid = strings.Contains(fName, "noLiquid")
-			if fNameNoLiquid && !noLiquid {
+			if fNameNoLiquid && noLiquidString == falseString {
 				foundNoLiquid = true
-			} else if !fNameNoLiquid && !noLiquid {
+			} else if !fNameNoLiquid && noLiquidString == falseString {
 				tiles[strings.TrimLeft(fName, "map")] = fullFileName
-			} else if fNameNoLiquid && noLiquid {
+			} else if fNameNoLiquid && noLiquidString != falseString {
 				tiles[strings.TrimLeft(fName, "noLiquid_map")] = fullFileName
-			} else if !fNameNoLiquid && noLiquid {
+			} else if !fNameNoLiquid && noLiquidString != falseString {
 				var trimmerFName = strings.TrimLeft(fName, "map")
 				if _, ok := tiles[trimmerFName]; !ok {
 					tiles[trimmerFName] = fullFileName
@@ -67,14 +86,16 @@ func compileMinimap(w sync.WaitGroup, resultFileName string, sourceDirectory str
 		}
 	}
 
-	if foundNoLiquid && !noLiquid {
-		w.Add(1)
-		compileMinimap(w, resultFileName + "NoLiquid", sourceDirectory, minimapName, true)
+	if foundNoLiquid && noLiquidString == falseString {
+		var array [4]string
+		array[0] = resultFileName + "NoLiquid"
+		array[1] = sourceDirectory
+		array[2] = minimapName
+		array[3] = "true"
+		tasks <- array
 	}
 
 	buildMinimap(resultFileName, tiles)
-
-	w.Done()
 }
 
 func buildMinimap(resultFileName string, tiles map[string]string)  {
