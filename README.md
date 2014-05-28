@@ -18,7 +18,7 @@ import stitcher "github.com/WyriMaps/MinimapStitcher"
 import "runtime"
 
 func main () {
-    runtime.GOMAXPROCS(4) // Where 4 is the number of CPU cores
+    runtime.GOMAXPROCS(runtime.GOMAXPROCS(runtime.NumCPU()) // Auto detects the number of cores to use
 	stitcher.Stitch("./Minimaps/", "./StitchedMaps/")
 }
 
