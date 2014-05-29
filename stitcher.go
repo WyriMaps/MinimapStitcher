@@ -19,6 +19,7 @@ const (
 )
 
 type reportCallback func(map[string]string)
+type reportCallbackWrapper func(string, map [string]string)
 
 func Stitch(callback reportCallback, sourceDirectory string, destinationDirectory string) {
 	var wg sync.WaitGroup
@@ -29,14 +30,24 @@ func Stitch(callback reportCallback, sourceDirectory string, destinationDirector
 		go func() {
 			for arguments := range tasks {
 				message := make(map [string]string)
-				message["type"] = "start_compile"
 				message["minimap"] = arguments[4]
 				message["tile"] = "0"
 				message["tiles"] = "0"
-				callback(message)
-				compileMinimap(callback, message, tasks, arguments[0], arguments[1], arguments[2], arguments[3])
-				message["type"] = "complete_compile"
-				callback(message)
+				var callbackWrapper = func(messageText string, extras map [string]string) {
+					message["type"] = messageText
+
+					if _, ok := extras["tile"]; ok {
+						message["tile"] = extras["tile"]
+					}
+					if _, ok := extras["tiles"]; ok {
+						message["tiles"] = extras["tiles"]
+					}
+
+					callback(message)
+				}
+				callbackWrapper("start_compile", make(map [string]string))
+				compileMinimap(callbackWrapper, tasks, arguments[0], arguments[1], arguments[2], arguments[3])
+				callbackWrapper("complete_compile", make(map [string]string))
 			}
 			wg.Done()
 			return
@@ -73,7 +84,7 @@ func Stitch(callback reportCallback, sourceDirectory string, destinationDirector
 	wg.Wait()
 }
 
-func compileMinimap(callback reportCallback, message map[string]string, tasks chan [5]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
+func compileMinimap(callback reportCallbackWrapper, tasks chan [5]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
 	var falseString = "false"
 	var foundNoLiquid = false
 	var tiles = make(map[string]string);
@@ -108,23 +119,19 @@ func compileMinimap(callback reportCallback, message map[string]string, tasks ch
 		tasks <- array
 	}
 
-	message["type"] = "start_build"
-	callback(message)
-	buildMinimap(callback, message, resultFileName, tiles)
-	message["type"] = "start_build"
-	callback(message)
+	callback("start_build", make(map [string]string))
+	buildMinimap(callback, resultFileName, tiles)
+	callback("start_build", make(map [string]string))
 }
 
-func buildMinimap(callback reportCallback, message map[string]string, resultFileName string, tiles map[string]string)  {
-	message["type"] = "calculate_minimap_size"
-	callback(message)
+func buildMinimap(callback reportCallbackWrapper, resultFileName string, tiles map[string]string)  {
+	callback("calculate_minimap_size", make(map [string]string))
 	var hc, lc, hr, lr = calculateMinimapSize(tiles)
 
-	message["type"] = "calculate_minimap_tileplacement"
-	callback(message)
+	callback("calculate_minimap_tileplacement", make(map [string]string))
 	var files, width, height = calculateMinimapTilePlacement(tiles, hc, lc, hr, lr)
 
-	createMinimapImage(callback, message, resultFileName, width, height, files)
+	createMinimapImage(callback, resultFileName, width, height, files)
 }
 
 func calculateMinimapSize(tiles map[string]string) (hc, lc, hr, lr int) {
@@ -178,16 +185,16 @@ func calculateMinimapTilePlacement(tiles map[string]string, hc int, lc int, hr i
 	return files, width, height
 }
 
-func createMinimapImage(callback reportCallback, message map[string]string, resultFileName string, width int, height int, files map[string]string) {
-	message["type"] = "start_stitch"
-	message["tiles"] = strconv.Itoa(len(files))
-	callback(message)
+func createMinimapImage(callback reportCallbackWrapper, resultFileName string, width int, height int, files map[string]string) {
+	extras := make(map [string]string)
+	extras["tiles"] = strconv.Itoa(len(files))
+	callback("start_stitch", extras)
 
 	m := image.NewRGBA(image.Rect(0, 0, width, height))
 	for coords, fileName := range files {
-		message["type"] = "stitch_tile"
-		message["tile"] = coords
-		callback(message)
+		extras := make(map [string]string)
+		extras["tile"] = coords
+		callback("stitch_tile", extras)
 
 		var coordParts = strings.Split(coords, "_")
 		var x, _ = strconv.Atoi(coordParts[0])
@@ -201,8 +208,7 @@ func createMinimapImage(callback reportCallback, message map[string]string, resu
 
 	defer toimg.Close()
 
-	message["type"] = "finish_stitch"
-	callback(message)
+	callback("finish_stitch", make(map [string]string))
 }
 
 func applyTileToImage(m *image.RGBA, fileName string, x int, y int) {
