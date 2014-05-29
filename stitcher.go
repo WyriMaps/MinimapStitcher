@@ -18,17 +18,28 @@ const (
 	TILE_SIZE = 256
 )
 
-func Stitch(sourceDirectory string, destinationDirectory string) {
+type reportCallback func(map[string]string)
+
+func Stitch(callback reportCallback, sourceDirectory string, destinationDirectory string) {
 	var wg sync.WaitGroup
-	tasks := make(chan [4]string)
+	tasks := make(chan [5]string)
 
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
 			for arguments := range tasks {
-				compileMinimap(tasks, arguments[0],arguments[1],arguments[2],arguments[3])
+				message := make(map [string]string)
+				message["type"] = "start_compile"
+				message["minimap"] = arguments[4]
+				message["tile"] = "0"
+				message["tiles"] = "0"
+				callback(message)
+				compileMinimap(callback, message, tasks, arguments[0], arguments[1], arguments[2], arguments[3])
+				message["type"] = "complete_compile"
+				callback(message)
 			}
 			wg.Done()
+			return
 		}()
 	}
 
@@ -47,11 +58,12 @@ func Stitch(sourceDirectory string, destinationDirectory string) {
 		mode := fi.Mode()
 		if mode.IsDir() {
 			if f.Name() != "WMO" {
-				var array [4]string
+				var array [5]string
 				array[0] = destinationDirectory + f.Name()
 				array[1] = sourceDirectory + f.Name()
 				array[2] = f.Name()
 				array[3] = "false"
+				array[4] = f.Name()
 				tasks <- array
 			}
 		}
@@ -61,7 +73,7 @@ func Stitch(sourceDirectory string, destinationDirectory string) {
 	wg.Wait()
 }
 
-func compileMinimap(tasks chan [4]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
+func compileMinimap(callback reportCallback, message map[string]string, tasks chan [5]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
 	var falseString = "false"
 	var foundNoLiquid = false
 	var tiles = make(map[string]string);
@@ -87,21 +99,32 @@ func compileMinimap(tasks chan [4]string, resultFileName string, sourceDirectory
 	}
 
 	if foundNoLiquid && noLiquidString == falseString {
-		var array [4]string
+		var array [5]string
 		array[0] = resultFileName + "NoLiquid"
 		array[1] = sourceDirectory
 		array[2] = minimapName
 		array[3] = "true"
+		array[4] = minimapName + "NoLiquid"
 		tasks <- array
 	}
 
-	buildMinimap(resultFileName, tiles)
+	message["type"] = "start_build"
+	callback(message)
+	buildMinimap(callback, message, resultFileName, tiles)
+	message["type"] = "start_build"
+	callback(message)
 }
 
-func buildMinimap(resultFileName string, tiles map[string]string)  {
+func buildMinimap(callback reportCallback, message map[string]string, resultFileName string, tiles map[string]string)  {
+	message["type"] = "calculate_minimap_size"
+	callback(message)
 	var hc, lc, hr, lr = calculateMinimapSize(tiles)
+
+	message["type"] = "calculate_minimap_tileplacement"
+	callback(message)
 	var files, width, height = calculateMinimapTilePlacement(tiles, hc, lc, hr, lr)
-	createMinimapImage(resultFileName, width, height, files)
+
+	createMinimapImage(callback, message, resultFileName, width, height, files)
 }
 
 func calculateMinimapSize(tiles map[string]string) (hc, lc, hr, lr int) {
@@ -155,9 +178,17 @@ func calculateMinimapTilePlacement(tiles map[string]string, hc int, lc int, hr i
 	return files, width, height
 }
 
-func createMinimapImage(resultFileName string, width int, height int, files map[string]string) {
+func createMinimapImage(callback reportCallback, message map[string]string, resultFileName string, width int, height int, files map[string]string) {
+	message["type"] = "start_stitch"
+	message["tiles"] = strconv.Itoa(len(files))
+	callback(message)
+
 	m := image.NewRGBA(image.Rect(0, 0, width, height))
 	for coords, fileName := range files {
+		message["type"] = "stitch_tile"
+		message["tile"] = coords
+		callback(message)
+
 		var coordParts = strings.Split(coords, "_")
 		var x, _ = strconv.Atoi(coordParts[0])
 		var y, _ = strconv.Atoi(coordParts[1])
@@ -169,6 +200,9 @@ func createMinimapImage(resultFileName string, width int, height int, files map[
 	png.Encode(toimg, m)
 
 	defer toimg.Close()
+
+	message["type"] = "finish_stitch"
+	callback(message)
 }
 
 func applyTileToImage(m *image.RGBA, fileName string, x int, y int) {
