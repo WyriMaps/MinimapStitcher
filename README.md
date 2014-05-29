@@ -19,7 +19,10 @@ import "runtime"
 
 func main () {
     runtime.GOMAXPROCS(runtime.GOMAXPROCS(runtime.NumCPU()) // Auto detects the number of cores to use
-	stitcher.Stitch("./Minimaps/", "./StitchedMaps/")
+    var report = func(message map[string]string) {
+		fmt.Println(message["minimap"] + ": " + message["type"])
+	}
+	stitcher.Stitch(report, "./Minimaps/", "./StitchedMaps/")
 }
 
 ```
