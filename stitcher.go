@@ -12,19 +12,61 @@ import (
 	"image/draw"
 	"image"
 	"image/png"
+	"encoding/json"
 )
 
 const (
 	TILE_SIZE = 256
 )
 
-type reportCallback func(map[string]string)
-type reportCallbackWrapper func(string, map [string]string)
+type reportCallbackMessage map[string]string
+type reportCallback func(reportCallbackMessage)
+type reportCallbackWrapper func(string, reportCallbackMessage)
 
-func Stitch(callback reportCallback, sourceDirectory string, destinationDirectory string) {
-	var wg sync.WaitGroup
-	tasks := make(chan [5]string)
+func Stitch(sourceDirectory string, destinationDirectory string) {
+	var callback = func(message reportCallbackMessage) {
+		b, _ := json.Marshal(message)
+		os.Stdout.Write(b)
+		print("\r\n")
+	}
 
+	var wg sync.WaitGroup;
+	tasks := make(chan [5]string);
+
+	listMapsFound(callback, sourceDirectory);
+	setupWaitGroup(wg, tasks, callback);
+	addMapsToWaitGroup(tasks, sourceDirectory, destinationDirectory);
+
+	wg.Wait()
+}
+
+func listMapsFound(callback reportCallback, sourceDirectory string) {
+	files, _ := ioutil.ReadDir(sourceDirectory)
+	for _, f := range files {
+		fd, err := os.Open(sourceDirectory + f.Name())
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fi, err := fd.Stat()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		mode := fi.Mode()
+		if mode.IsDir() {
+			if f.Name() != "WMO" {
+				message := make(map [string]string)
+				message["minimap"] = f.Name()
+				message["type"] = "found"
+				callback(message)
+			}
+		}
+		defer fd.Close()
+	}
+}
+
+func setupWaitGroup(wg sync.WaitGroup, tasks chan [5]string, callback reportCallback, ) {
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
@@ -33,7 +75,7 @@ func Stitch(callback reportCallback, sourceDirectory string, destinationDirector
 				message["minimap"] = arguments[4]
 				message["tile"] = "0"
 				message["tiles"] = "0"
-				var callbackWrapper = func(messageText string, extras map [string]string) {
+				var callbackWrapper = func(messageText string, extras reportCallbackMessage) {
 					message["type"] = messageText
 
 					if _, ok := extras["tile"]; ok {
@@ -53,7 +95,9 @@ func Stitch(callback reportCallback, sourceDirectory string, destinationDirector
 			return
 		}()
 	}
+}
 
+func addMapsToWaitGroup(tasks chan [5]string, sourceDirectory string, destinationDirectory string) {
 	files, _ := ioutil.ReadDir(sourceDirectory)
 	for _, f := range files {
 		fd, err := os.Open(sourceDirectory + f.Name())
@@ -80,8 +124,6 @@ func Stitch(callback reportCallback, sourceDirectory string, destinationDirector
 		}
 		defer fd.Close()
 	}
-
-	wg.Wait()
 }
 
 func compileMinimap(callback reportCallbackWrapper, tasks chan [5]string, resultFileName string, sourceDirectory string, minimapName string, noLiquidString string) {
