@@ -92,6 +92,7 @@ func setupWaitGroup(wg sync.WaitGroup, tasks chan [5]string, callback reportCall
 				callbackWrapper("complete_compile", make(map [string]string))
 			}
 			wg.Done()
+			return
 		}()
 	}
 }
@@ -157,7 +158,7 @@ func compileMinimap(callback reportCallbackWrapper, tasks chan [5]string, result
 		array[2] = minimapName
 		array[3] = "true"
 		array[4] = minimapName + "NoLiquid"
-		tasks <- array
+		go func() { tasks <- array }()
 	}
 
 	callback("start_build", make(map [string]string))
