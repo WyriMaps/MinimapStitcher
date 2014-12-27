@@ -33,8 +33,8 @@ func Stitch(sourceDirectory string, destinationDirectory string) {
 	var wg sync.WaitGroup;
 	tasks := make(chan [5]string);
 
-	listMapsFound(callback, sourceDirectory);
 	setupWaitGroup(wg, tasks, callback);
+	listMapsFound(callback, sourceDirectory);
 	addMapsToWaitGroup(tasks, sourceDirectory, destinationDirectory);
 
 	wg.Wait()
@@ -92,7 +92,6 @@ func setupWaitGroup(wg sync.WaitGroup, tasks chan [5]string, callback reportCall
 				callbackWrapper("complete_compile", make(map [string]string))
 			}
 			wg.Done()
-			return
 		}()
 	}
 }
