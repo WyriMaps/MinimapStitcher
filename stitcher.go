@@ -67,7 +67,7 @@ func listMapsFound(callback reportCallback, sourceDirectory string) {
 }
 
 func setupWaitGroup(wg sync.WaitGroup, tasks chan [5]string, callback reportCallback, ) {
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
 			for arguments := range tasks {
