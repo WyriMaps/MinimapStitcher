@@ -25,9 +25,9 @@ type reportCallbackWrapper func(string, reportCallbackMessage)
 
 func Stitch(sourceDirectory string, destinationDirectory string) {
 	var callback = func(message reportCallbackMessage) {
-		b, _ := json.Marshal(message)
-		os.Stdout.Write(b)
-		print("\r\n")
+		json, _ := json.Marshal(message)
+		line := append(json, "\r\n"...)
+		os.Stdout.Write(line)
 	}
 
 	var wg sync.WaitGroup;
