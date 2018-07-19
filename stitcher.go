@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	TILE_SIZE = 256
+	TILE_SIZE = 512
 )
 
 type reportCallbackMessage map[string]string
